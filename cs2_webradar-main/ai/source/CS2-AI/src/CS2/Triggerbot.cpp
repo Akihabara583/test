@@ -190,11 +190,14 @@ void Triggerbot::update(GameInformationhandler* handler)
 		get_recoil_gain(m_recoil_compensation, game_info.controlled_player);
 	const Vec2D<float> current_view = game_info.controlled_player.view_vec;
 	const bool is_spraying = game_info.controlled_player.shots_fired > 0;
-	const float spray_ratio =
+	float spray_ratio =
 		std::clamp(
-			(static_cast<float>(game_info.controlled_player.shots_fired) - 1.0f) / 12.0f,
+			(static_cast<float>(game_info.controlled_player.shots_fired) - 1.0f) / 20.0f,
 			0.0f,
-			1.0f);
+			0.70f);
+	// Reset spray penalties quickly between separate fights.
+	if ((now - m_last_automatic_shot_at) > 180)
+		spray_ratio = 0.0f;
 	if (m_last_write_pending)
 	{
 		if (!is_spraying &&
@@ -264,6 +267,13 @@ void Triggerbot::update(GameInformationhandler* handler)
 
 	if (!base_target)
 	{
+		// Hard stop fire between targets so spray state can reset quickly and
+		// auto-fire does not "calm down" after several eliminations.
+		if (m_attack_release_at > 0 || game_info.controlled_player.shooting)
+		{
+			handler->set_player_shooting(false);
+			m_attack_release_at = 0;
+		}
 		handler->set_counter_strafe(Movement{});
 		m_current_target_entity_index = -1;
 		m_head_lock_started_at = 0;
@@ -352,7 +362,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 				// Never prefire while still above head, even in aggressive mode.
 				const bool not_above_head = delta.x <= vertical_gate * 0.22f;
 				const bool auto_fire_lock =
-					error <= std::max(prefire_error, profile.flick_enter_error * 1.40f) &&
+					error <= std::max(prefire_error, profile.flick_enter_error * 1.85f) &&
 					not_above_head;
 				if (error <= prefire_error &&
 					vertical_error <= vertical_gate &&
@@ -569,9 +579,9 @@ bool Triggerbot::is_aimed_at_head(const GameInformation& game_info) const
 				raw_head_radius * 0.65f));
 	const float spray_ratio =
 		std::clamp(
-			(static_cast<float>(game_info.controlled_player.shots_fired) - 1.0f) / 8.0f,
+			(static_cast<float>(game_info.controlled_player.shots_fired) - 1.0f) / 14.0f,
 			0.0f,
-			1.0f);
+			0.65f);
 	const float strict_center_error =
 		std::max(
 			0.01f,

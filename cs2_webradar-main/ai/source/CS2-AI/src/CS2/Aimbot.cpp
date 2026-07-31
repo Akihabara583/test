@@ -63,11 +63,15 @@ RecoilCompensation build_recoil_compensation(
 	RecoilCompensation result{};
 	const Vec2D<float> raw_recoil = get_active_recoil(player);
 	result.horizontal_speed = get_horizontal_speed(player);
-	const float spray_ratio =
+	float spray_ratio =
 		std::clamp(
 			(static_cast<float>(player.shots_fired) - 1.0f) / 14.0f,
 			0.0f,
 			1.0f);
+	const float raw_recoil_magnitude =
+		std::sqrt(raw_recoil.x * raw_recoil.x + raw_recoil.y * raw_recoil.y);
+	if (raw_recoil_magnitude < 0.025f)
+		spray_ratio *= 0.25f;
 	result.spray_ratio = spray_ratio;
 
 	const float recoil_alpha =
