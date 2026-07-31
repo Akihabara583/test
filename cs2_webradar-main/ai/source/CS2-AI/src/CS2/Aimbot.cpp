@@ -6,6 +6,11 @@
 
 namespace
 {
+float mix(float from, float to, float t)
+{
+	return from + (to - from) * std::clamp(t, 0.0f, 1.0f);
+}
+
 Vec2D<float> get_active_recoil(const ControlledPlayer& player)
 {
 	Vec2D<float> recoil = player.recoil_signal;
@@ -16,20 +21,76 @@ Vec2D<float> get_active_recoil(const ControlledPlayer& player)
 	return recoil;
 }
 
-float get_recoil_gain(float base_compensation, const ControlledPlayer& player)
+float get_horizontal_speed(const ControlledPlayer& player)
 {
-	const float horizontal_speed =
-		std::sqrt(
-			player.velocity.x * player.velocity.x +
-			player.velocity.y * player.velocity.y);
+	return std::sqrt(
+		player.velocity.x * player.velocity.x +
+		player.velocity.y * player.velocity.y);
+}
+
+struct RecoilCompensation
+{
+	Vec2D<float> filtered{};
+	Vec2D<float> compensation{};
+	float spray_ratio = 0.0f;
+	float horizontal_speed = 0.0f;
+};
+
+RecoilCompensation build_recoil_compensation(
+	float base_compensation,
+	const ControlledPlayer& player,
+	const Vec2D<float>& previous_filtered)
+{
+	RecoilCompensation result{};
+	const Vec2D<float> raw_recoil = get_active_recoil(player);
+	result.horizontal_speed = get_horizontal_speed(player);
 	const float spray_ratio =
-		std::clamp(static_cast<float>(player.shots_fired) / 8.0f, 0.0f, 1.0f);
-	const float movement_penalty =
-		std::clamp(horizontal_speed / 260.0f, 0.0f, 1.0f) * 0.18f;
-	return std::clamp(
-		base_compensation * (0.90f + spray_ratio * 0.55f - movement_penalty),
-		0.0f,
-		4.0f);
+		std::clamp(
+			(static_cast<float>(player.shots_fired) - 1.0f) / 10.0f,
+			0.0f,
+			1.0f);
+	result.spray_ratio = spray_ratio;
+
+	const float recoil_alpha =
+		player.shots_fired == 0
+		? 0.16f
+		: mix(0.34f, 0.82f, spray_ratio);
+	result.filtered.x =
+		previous_filtered.x +
+		(raw_recoil.x - previous_filtered.x) * recoil_alpha;
+	result.filtered.y =
+		previous_filtered.y +
+		(raw_recoil.y - previous_filtered.y) * recoil_alpha;
+	if (player.shots_fired == 0)
+	{
+		result.filtered.x *= 0.82f;
+		result.filtered.y *= 0.82f;
+	}
+
+	const Vec2D<float> recoil_velocity{
+		result.filtered.x - previous_filtered.x,
+		result.filtered.y - previous_filtered.y
+	};
+	const float recoil_lead = mix(0.14f, 0.60f, spray_ratio);
+	const float movement_ratio =
+		std::clamp(result.horizontal_speed / 260.0f, 0.0f, 1.0f);
+	const float pitch_gain =
+		std::clamp(
+			base_compensation *
+			(1.05f + spray_ratio * 1.05f - movement_ratio * 0.16f),
+			0.0f,
+			5.0f);
+	const float yaw_gain =
+		std::clamp(
+			base_compensation *
+			(0.72f + spray_ratio * 0.72f - movement_ratio * 0.26f),
+			0.0f,
+			4.5f);
+	result.compensation.x =
+		(result.filtered.x + recoil_velocity.x * recoil_lead) * pitch_gain;
+	result.compensation.y =
+		(result.filtered.y + recoil_velocity.y * recoil_lead) * yaw_gain;
+	return result;
 }
 }
 
@@ -44,21 +105,27 @@ void Aimbot::update(GameInformationhandler* info_handler)
 
 	const auto now = std::chrono::steady_clock::now();
 	const Vec2D<float> current_view = game_info.controlled_player.view_vec;
+	const bool is_spraying = game_info.controlled_player.shots_fired > 0;
 
 	if (m_last_write_pending)
 	{
-		if (angle_distance(current_view, m_last_written_view) > 0.08f)
+		if (!is_spraying &&
+			angle_distance(current_view, m_last_written_view) > 0.08f)
+		{
 			m_manual_override_until = now + std::chrono::milliseconds(m_manual_override_ms);
+		}
 		m_last_write_pending = false;
 	}
 
 	if (now < m_manual_override_until)
 		return;
 
-	const Vec2D<float> active_recoil =
-		get_active_recoil(game_info.controlled_player);
-	const float recoil_gain =
-		get_recoil_gain(m_recoil_compensation, game_info.controlled_player);
+	const RecoilCompensation recoil =
+		build_recoil_compensation(
+			m_recoil_compensation,
+			game_info.controlled_player,
+			m_filtered_recoil);
+	m_filtered_recoil = recoil.filtered;
 
 	float best_error = FLT_MAX;
 	Vec2D<float> best_target_view{};
@@ -97,10 +164,10 @@ void Aimbot::update(GameInformationhandler* info_handler)
 		Vec2D<float> target_view =
 			calc_view_vec_aim_to_head(game_info.controlled_player.head_position, target_point);
 		target_view.x -=
-			active_recoil.x * recoil_gain;
+			recoil.compensation.x;
 		target_view.y = normalize_yaw(
 			target_view.y -
-			active_recoil.y * recoil_gain);
+			recoil.compensation.y);
 		const float error = angle_distance(current_view, target_view);
 		if (error <= m_fov_degrees && error < best_error)
 		{
@@ -113,9 +180,26 @@ void Aimbot::update(GameInformationhandler* info_handler)
 	if (!target_found)
 		return;
 
+	float effective_smoothing =
+		std::clamp(m_smoothing + recoil.spray_ratio * 0.28f, 0.01f, 1.0f);
+	float effective_step =
+		m_max_step_degrees * (1.0f + recoil.spray_ratio * 1.15f);
+	if (recoil.horizontal_speed > 65.0f)
+	{
+		effective_step *=
+			std::clamp(1.0f - recoil.horizontal_speed / 360.0f, 0.42f, 1.0f);
+	}
+	effective_step = std::clamp(effective_step, 0.05f, 180.0f);
+
 	Vec2D<float> delta = angle_delta(current_view, best_target_view);
-	delta.x = std::clamp(delta.x * m_smoothing, -m_max_step_degrees, m_max_step_degrees);
-	delta.y = std::clamp(delta.y * m_smoothing, -m_max_step_degrees, m_max_step_degrees);
+	delta.x = std::clamp(
+		delta.x * effective_smoothing,
+		-effective_step,
+		effective_step);
+	delta.y = std::clamp(
+		delta.y * effective_smoothing,
+		-effective_step,
+		effective_step);
 
 	Vec2D<float> new_view_vec{};
 	new_view_vec.x = std::clamp(current_view.x + delta.x, -89.0f, 89.0f);

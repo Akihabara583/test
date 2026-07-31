@@ -39,13 +39,16 @@ float get_recoil_gain(float base_compensation, const ControlledPlayer& player)
 			player.velocity.x * player.velocity.x +
 			player.velocity.y * player.velocity.y);
 	const float spray_ratio =
-		std::clamp(static_cast<float>(player.shots_fired) / 8.0f, 0.0f, 1.0f);
+		std::clamp(
+			(static_cast<float>(player.shots_fired) - 1.0f) / 10.0f,
+			0.0f,
+			1.0f);
 	const float movement_penalty =
-		std::clamp(horizontal_speed / 260.0f, 0.0f, 1.0f) * 0.18f;
+		std::clamp(horizontal_speed / 260.0f, 0.0f, 1.0f) * 0.20f;
 	return std::clamp(
-		base_compensation * (0.90f + spray_ratio * 0.55f - movement_penalty),
+		base_compensation * (1.00f + spray_ratio * 0.88f - movement_penalty),
 		0.0f,
-		4.0f);
+		5.0f);
 }
 
 AssistProfile build_assist_profile(
@@ -157,10 +160,14 @@ void Triggerbot::update(GameInformationhandler* handler)
 	const float recoil_gain =
 		get_recoil_gain(m_recoil_compensation, game_info.controlled_player);
 	const Vec2D<float> current_view = game_info.controlled_player.view_vec;
+	const bool is_spraying = game_info.controlled_player.shots_fired > 0;
 	if (m_last_write_pending)
 	{
-		if (angle_distance(current_view, m_last_written_view) > 0.10f)
+		if (!is_spraying &&
+			angle_distance(current_view, m_last_written_view) > 0.10f)
+		{
 			m_manual_override_until = now + 140;
+		}
 		m_last_write_pending = false;
 	}
 	const auto calc_target_view =

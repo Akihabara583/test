@@ -25,5 +25,6 @@ private:
 	int m_manual_override_ms = 80;
 	bool m_last_write_pending = false;
 	Vec2D<float> m_last_written_view{};
+	Vec2D<float> m_filtered_recoil{};
 	std::chrono::steady_clock::time_point m_manual_override_until{};
 };
