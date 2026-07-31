@@ -25,7 +25,7 @@ void apply_distance_target_profile(
 		std::clamp(1200.0f / std::max(target_distance, 1.0f), 0.35f, 1.0f);
 	const float range_ratio = get_range_ratio(target_distance);
 	const float extra_z_bias =
-		mix(0.80f, -2.30f, range_ratio);
+		mix(0.55f, -1.10f, range_ratio);
 	target_point.z +=
 		(base_z_offset + extra_z_bias) * offset_scale;
 }

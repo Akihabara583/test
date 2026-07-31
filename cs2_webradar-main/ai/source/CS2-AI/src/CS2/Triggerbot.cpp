@@ -35,7 +35,9 @@ void apply_distance_target_profile(
 	const float offset_scale =
 		std::clamp(1200.0f / std::max(target_distance, 1.0f), 0.35f, 1.0f);
 	const float range_ratio = get_range_ratio(target_distance);
-	const float extra_z_bias = mix(0.80f, -2.30f, range_ratio);
+	// Keep target inside head hitbox at all ranges:
+	// close range -> slightly upper skull, long range -> center/mid head.
+	const float extra_z_bias = mix(0.55f, -1.10f, range_ratio);
 	target_point.z +=
 		(base_z_offset + extra_z_bias) * offset_scale;
 }
@@ -365,16 +367,33 @@ void Triggerbot::update(GameInformationhandler* handler)
 
 				// Aggressive auto-shot once aligned, even before crosshair entity
 				// catches up to this new view sample.
+				const float head_radius_degrees =
+					std::clamp(
+						std::atan2(
+							best_candidate->head_radius,
+							std::max(best_distance, 1.0f)) /
+							PI *
+							180.0f,
+						0.025f,
+						0.20f);
 				const float prefire_error =
-					std::clamp(0.36f + best_distance / 4200.0f, 0.36f, 0.80f);
+					std::clamp(
+						head_radius_degrees * mix(0.82f, 0.68f, spray_ratio),
+						0.05f,
+						0.24f);
 				const float vertical_error = std::abs(delta.x);
 				const float vertical_gate =
-					std::clamp(0.14f + best_distance / 6800.0f, 0.14f, 0.34f);
+					std::clamp(
+						head_radius_degrees * mix(0.62f, 0.48f, spray_ratio),
+						0.035f,
+						0.16f);
 				// A positive pitch delta means current aim is above the target center.
 				// Never prefire while still above head, even in aggressive mode.
-				const bool not_above_head = delta.x <= vertical_gate * 0.28f;
+				const bool not_above_head = delta.x <= vertical_gate * 0.18f;
 				const bool auto_fire_lock =
-					error <= std::max(prefire_error, profile.flick_enter_error * 2.20f) &&
+					error <= std::max(
+						prefire_error * 1.45f,
+						head_radius_degrees * 1.15f) &&
 					not_above_head;
 				if (error <= prefire_error &&
 					vertical_error <= vertical_gate &&
@@ -590,10 +609,10 @@ bool Triggerbot::is_aimed_at_head(const GameInformation& game_info) const
 			0.01f,
 			std::min(
 				allowed_error,
-				raw_head_radius * mix(0.56f, 1.18f, range_ratio))) *
-		mix(1.0f, 0.58f, spray_ratio);
+				raw_head_radius * mix(0.52f, 0.88f, range_ratio))) *
+		mix(0.94f, 0.66f, spray_ratio);
 	// A positive delta means the screen aim is above the head center.
-	if (raw_pitch_delta > raw_head_radius * mix(0.44f, 0.24f, spray_ratio))
+	if (raw_pitch_delta > raw_head_radius * mix(0.40f, 0.22f, spray_ratio))
 		return false;
 	return raw_crosshair_error <= strict_center_error;
 }
