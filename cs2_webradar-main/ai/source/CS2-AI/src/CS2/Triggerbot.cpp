@@ -545,14 +545,20 @@ bool Triggerbot::is_aimed_at_head(const GameInformation& game_info) const
 			std::max(
 				m_head_tolerance_degrees,
 				raw_head_radius * 0.65f));
+	const float spray_ratio =
+		std::clamp(
+			(static_cast<float>(game_info.controlled_player.shots_fired) - 1.0f) / 8.0f,
+			0.0f,
+			1.0f);
 	const float strict_center_error =
 		std::max(
 			0.01f,
 			std::min(
 				allowed_error,
-				raw_head_radius * mix(0.60f, 2.10f, range_ratio)));
+				raw_head_radius * mix(0.60f, 2.10f, range_ratio))) *
+		mix(1.0f, 0.64f, spray_ratio);
 	// A positive delta means the screen aim is above the head center.
-	if (raw_pitch_delta > raw_head_radius * 0.55f)
+	if (raw_pitch_delta > raw_head_radius * mix(0.55f, 0.32f, spray_ratio))
 		return false;
 	return raw_crosshair_error <= strict_center_error;
 }

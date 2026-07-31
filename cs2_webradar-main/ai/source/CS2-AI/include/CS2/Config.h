@@ -16,8 +16,8 @@ struct Config
 	float aim_target_left_offset = 1.2f;
 	int manual_mouse_override_ms = 0;
 	bool trigger_head_only = true;
-	float trigger_head_tolerance_degrees = 0.08f;
-	float recoil_compensation = 1.65f;
+	float trigger_head_tolerance_degrees = 0.055f;
+	float recoil_compensation = 1.45f;
 	bool only_accurate_shots = false;
 	float max_shot_speed = 500.0f;
 	bool auto_stop = false;
