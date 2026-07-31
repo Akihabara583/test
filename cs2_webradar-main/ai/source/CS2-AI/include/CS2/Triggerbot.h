@@ -33,5 +33,5 @@ private:
 	bool m_last_write_pending = false;
 	Vec2D<float> m_last_written_view{};
 	long long m_attack_release_at = 0;
-	int m_time_between_shots = 28;
+	int m_time_between_shots = 8;
 };

@@ -62,9 +62,9 @@ float get_recoil_gain(float base_compensation, const ControlledPlayer& player)
 			0.0f,
 			1.0f);
 	const float movement_penalty =
-		std::clamp(horizontal_speed / 260.0f, 0.0f, 1.0f) * 0.20f;
+		std::clamp(horizontal_speed / 260.0f, 0.0f, 1.0f) * 0.16f;
 	return std::clamp(
-		base_compensation * (0.92f + spray_ratio * 0.42f - movement_penalty),
+		base_compensation * (0.96f + spray_ratio * 0.40f - movement_penalty),
 		0.0f,
 		3.0f);
 }
@@ -73,7 +73,8 @@ AssistProfile build_assist_profile(
 	float target_distance,
 	float horizontal_speed,
 	float recoil_magnitude,
-	float view_punch_magnitude)
+	float view_punch_magnitude,
+	float spray_ratio)
 {
 	const float dist_ratio = std::clamp(target_distance / 2400.0f, 0.0f, 1.0f);
 	const float speed_ratio = std::clamp(horizontal_speed / 250.0f, 0.0f, 1.0f);
@@ -81,29 +82,34 @@ AssistProfile build_assist_profile(
 		std::clamp((recoil_magnitude + view_punch_magnitude) / 0.12f, 0.0f, 1.0f);
 
 	AssistProfile profile{};
-	profile.assist_fov = mix(14.0f, 22.0f, dist_ratio);
-	profile.flick_enter_error = mix(0.55f, 1.20f, dist_ratio);
+	profile.assist_fov = mix(26.0f, 38.0f, dist_ratio);
+	profile.flick_enter_error = mix(0.45f, 1.60f, dist_ratio);
 	profile.flick_strength =
 		std::clamp(
-			0.95f - speed_ratio * 0.10f - shake_ratio * 0.06f,
-			0.80f,
+			1.00f - speed_ratio * 0.04f - shake_ratio * 0.03f,
+			0.92f,
 			1.00f);
 	profile.track_strength =
 		std::clamp(
-			0.76f + dist_ratio * 0.10f - speed_ratio * 0.08f,
-			0.62f,
+			0.88f + dist_ratio * 0.08f - speed_ratio * 0.03f,
+			0.80f,
 			1.00f);
 	profile.max_step =
 		std::clamp(
-			5.4f + target_distance / 760.0f - speed_ratio * 0.16f,
-			4.0f,
-			9.0f);
+			9.5f + target_distance / 430.0f - speed_ratio * 0.08f,
+			7.0f,
+			17.0f);
 	profile.micro_step =
 		std::clamp(
-			1.8f + target_distance / 2400.0f,
-			1.8f,
-			4.2f);
-	profile.brake_error = mix(0.12f, 0.22f, dist_ratio);
+			3.2f + target_distance / 1400.0f,
+			3.2f,
+			8.0f);
+	profile.brake_error = mix(0.08f, 0.18f, dist_ratio);
+	// Avoid sticky over-tracking during long spray sequences.
+	profile.assist_fov *= mix(1.0f, 0.92f, spray_ratio);
+	profile.flick_enter_error *= mix(1.0f, 0.94f, spray_ratio);
+	profile.max_step *= mix(1.0f, 0.90f, spray_ratio);
+	profile.micro_step *= mix(1.0f, 0.94f, spray_ratio);
 	return profile;
 }
 
@@ -184,6 +190,11 @@ void Triggerbot::update(GameInformationhandler* handler)
 		get_recoil_gain(m_recoil_compensation, game_info.controlled_player);
 	const Vec2D<float> current_view = game_info.controlled_player.view_vec;
 	const bool is_spraying = game_info.controlled_player.shots_fired > 0;
+	const float spray_ratio =
+		std::clamp(
+			(static_cast<float>(game_info.controlled_player.shots_fired) - 1.0f) / 12.0f,
+			0.0f,
+			1.0f);
 	if (m_last_write_pending)
 	{
 		if (!is_spraying &&
@@ -285,7 +296,8 @@ void Triggerbot::update(GameInformationhandler* handler)
 						distance_to_player,
 						horizontal_speed,
 						recoil_magnitude,
-						view_punch_magnitude);
+						view_punch_magnitude,
+						spray_ratio);
 				if (current_error <= profile.assist_fov && current_error < best_error)
 				{
 					best_error = current_error;
@@ -304,7 +316,8 @@ void Triggerbot::update(GameInformationhandler* handler)
 						best_distance,
 						horizontal_speed,
 						recoil_magnitude,
-						view_punch_magnitude);
+						view_punch_magnitude,
+						spray_ratio);
 				const bool flick_phase = error > profile.flick_enter_error;
 				const float strength =
 					flick_phase ? profile.flick_strength : profile.track_strength;
@@ -331,19 +344,16 @@ void Triggerbot::update(GameInformationhandler* handler)
 				// Aggressive auto-shot once aligned, even before crosshair entity
 				// catches up to this new view sample.
 				const float prefire_error =
-					std::clamp(0.22f + best_distance / 5000.0f, 0.22f, 0.55f);
+					std::clamp(0.40f + best_distance / 3200.0f, 0.40f, 0.95f);
 				const float vertical_error = std::abs(delta.x);
 				const float vertical_gate =
-					std::clamp(0.10f + best_distance / 9000.0f, 0.10f, 0.28f);
+					std::clamp(0.14f + best_distance / 7000.0f, 0.14f, 0.36f);
 				// A positive pitch delta means current aim is above the target center.
 				// Never prefire while still above head, even in aggressive mode.
-				const bool not_above_head = delta.x <= vertical_gate * 0.18f;
-				const bool first_bullet_prefire =
-					game_info.controlled_player.shots_fired <= 1;
+				const bool not_above_head = delta.x <= vertical_gate * 0.35f;
 				if (error <= prefire_error &&
 					vertical_error <= vertical_gate &&
 					not_above_head &&
-					first_bullet_prefire &&
 					ready_to_fire_now)
 				{
 					handler->set_player_shooting(true);
@@ -413,7 +423,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 		return;
 
 	// If recoil/view punch is still settling, wait one more sample.
-	const float settle_gate = 0.42f;
+	const float settle_gate = 2.20f;
 	if (recoil_magnitude > settle_gate || view_punch_magnitude > settle_gate)
 		return;
 

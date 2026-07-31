@@ -25,7 +25,7 @@ void apply_distance_target_profile(
 		std::clamp(1200.0f / std::max(target_distance, 1.0f), 0.35f, 1.0f);
 	const float range_ratio = get_range_ratio(target_distance);
 	const float extra_z_bias =
-		mix(0.65f, -5.4f, range_ratio);
+		mix(0.80f, -2.30f, range_ratio);
 	target_point.z +=
 		(base_z_offset + extra_z_bias) * offset_scale;
 }
@@ -73,7 +73,7 @@ RecoilCompensation build_recoil_compensation(
 	const float recoil_alpha =
 		player.shots_fired == 0
 		? 0.0f
-		: mix(0.30f, 0.64f, spray_ratio);
+		: mix(0.30f, 0.62f, spray_ratio);
 	result.filtered.x =
 		previous_filtered.x +
 		(raw_recoil.x - previous_filtered.x) * recoil_alpha;
@@ -91,19 +91,19 @@ RecoilCompensation build_recoil_compensation(
 		result.filtered.x - previous_filtered.x,
 		result.filtered.y - previous_filtered.y
 	};
-	const float recoil_lead = mix(0.06f, 0.26f, spray_ratio);
+	const float recoil_lead = mix(0.05f, 0.22f, spray_ratio);
 	const float movement_ratio =
 		std::clamp(result.horizontal_speed / 260.0f, 0.0f, 1.0f);
 	const float pitch_gain =
 		std::clamp(
 			base_compensation *
-			(0.92f + spray_ratio * 0.38f - movement_ratio * 0.12f),
+			(0.92f + spray_ratio * 0.34f - movement_ratio * 0.12f),
 			0.0f,
 			3.2f);
 	const float yaw_gain =
 		std::clamp(
 			base_compensation *
-			(0.68f + spray_ratio * 0.34f - movement_ratio * 0.22f),
+			(0.68f + spray_ratio * 0.30f - movement_ratio * 0.20f),
 			0.0f,
 			2.6f);
 	result.compensation.x =
