@@ -58,15 +58,15 @@ float get_recoil_gain(float base_compensation, const ControlledPlayer& player)
 			player.velocity.y * player.velocity.y);
 	const float spray_ratio =
 		std::clamp(
-			(static_cast<float>(player.shots_fired) - 1.0f) / 10.0f,
+			(static_cast<float>(player.shots_fired) - 1.0f) / 14.0f,
 			0.0f,
 			1.0f);
 	const float movement_penalty =
 		std::clamp(horizontal_speed / 260.0f, 0.0f, 1.0f) * 0.20f;
 	return std::clamp(
-		base_compensation * (1.00f + spray_ratio * 0.88f - movement_penalty),
+		base_compensation * (0.92f + spray_ratio * 0.42f - movement_penalty),
 		0.0f,
-		5.0f);
+		3.0f);
 }
 
 AssistProfile build_assist_profile(
@@ -331,8 +331,15 @@ void Triggerbot::update(GameInformationhandler* handler)
 				// Aggressive auto-shot once aligned, even before crosshair entity
 				// catches up to this new view sample.
 				const float prefire_error =
-					std::clamp(0.55f + best_distance / 2500.0f, 0.55f, 1.25f);
-				if (error <= prefire_error && ready_to_fire_now)
+					std::clamp(0.22f + best_distance / 5000.0f, 0.22f, 0.55f);
+				const float vertical_error = std::abs(delta.x);
+				const float vertical_gate =
+					std::clamp(0.10f + best_distance / 9000.0f, 0.10f, 0.28f);
+				const bool not_above_head = delta.x >= -vertical_gate * 0.45f;
+				if (error <= prefire_error &&
+					vertical_error <= vertical_gate &&
+					not_above_head &&
+					ready_to_fire_now)
 				{
 					handler->set_player_shooting(true);
 					m_attack_release_at = now + 10;
@@ -401,7 +408,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 		return;
 
 	// If recoil/view punch is still settling, wait one more sample.
-	const float settle_gate = 99.0f;
+	const float settle_gate = 0.55f;
 	if (recoil_magnitude > settle_gate || view_punch_magnitude > settle_gate)
 		return;
 

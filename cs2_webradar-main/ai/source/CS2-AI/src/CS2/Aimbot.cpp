@@ -65,50 +65,53 @@ RecoilCompensation build_recoil_compensation(
 	result.horizontal_speed = get_horizontal_speed(player);
 	const float spray_ratio =
 		std::clamp(
-			(static_cast<float>(player.shots_fired) - 1.0f) / 10.0f,
+			(static_cast<float>(player.shots_fired) - 1.0f) / 14.0f,
 			0.0f,
 			1.0f);
 	result.spray_ratio = spray_ratio;
 
 	const float recoil_alpha =
 		player.shots_fired == 0
-		? 0.16f
-		: mix(0.34f, 0.82f, spray_ratio);
+		? 0.0f
+		: mix(0.30f, 0.64f, spray_ratio);
 	result.filtered.x =
 		previous_filtered.x +
 		(raw_recoil.x - previous_filtered.x) * recoil_alpha;
 	result.filtered.y =
 		previous_filtered.y +
 		(raw_recoil.y - previous_filtered.y) * recoil_alpha;
-	if (player.shots_fired == 0)
+	if (player.shots_fired <= 1)
 	{
-		result.filtered.x *= 0.82f;
-		result.filtered.y *= 0.82f;
+		// Prevent "memory" from previous sprays carrying into next duels.
+		result.filtered.x = raw_recoil.x * 0.55f;
+		result.filtered.y = raw_recoil.y * 0.55f;
 	}
 
 	const Vec2D<float> recoil_velocity{
 		result.filtered.x - previous_filtered.x,
 		result.filtered.y - previous_filtered.y
 	};
-	const float recoil_lead = mix(0.14f, 0.60f, spray_ratio);
+	const float recoil_lead = mix(0.06f, 0.26f, spray_ratio);
 	const float movement_ratio =
 		std::clamp(result.horizontal_speed / 260.0f, 0.0f, 1.0f);
 	const float pitch_gain =
 		std::clamp(
 			base_compensation *
-			(1.05f + spray_ratio * 1.05f - movement_ratio * 0.16f),
+			(0.92f + spray_ratio * 0.38f - movement_ratio * 0.12f),
 			0.0f,
-			5.0f);
+			3.2f);
 	const float yaw_gain =
 		std::clamp(
 			base_compensation *
-			(0.72f + spray_ratio * 0.72f - movement_ratio * 0.26f),
+			(0.68f + spray_ratio * 0.34f - movement_ratio * 0.22f),
 			0.0f,
-			4.5f);
+			2.6f);
 	result.compensation.x =
 		(result.filtered.x + recoil_velocity.x * recoil_lead) * pitch_gain;
 	result.compensation.y =
 		(result.filtered.y + recoil_velocity.y * recoil_lead) * yaw_gain;
+	result.compensation.x = std::clamp(result.compensation.x, -4.5f, 4.5f);
+	result.compensation.y = std::clamp(result.compensation.y, -3.5f, 3.5f);
 	return result;
 }
 }
@@ -200,7 +203,12 @@ void Aimbot::update(GameInformationhandler* info_handler)
 	}
 
 	if (!target_found)
+	{
+		// Quickly decay filter when no target is selected.
+		m_filtered_recoil.x *= 0.65f;
+		m_filtered_recoil.y *= 0.65f;
 		return;
+	}
 
 	float effective_smoothing =
 		std::clamp(m_smoothing + recoil.spray_ratio * 0.28f, 0.01f, 1.0f);
