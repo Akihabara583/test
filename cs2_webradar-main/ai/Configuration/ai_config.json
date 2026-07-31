@@ -9,7 +9,7 @@
   "aim_fov_degrees": 24.0,
   "aim_smoothing": 0.9,
   "aim_max_step_degrees": 16.0,
-  "aim_target_z_offset": -1.6,
+  "aim_target_z_offset": -1.15,
   "aim_target_left_offset": 0.0,
   "manual_mouse_override_ms": 0,
   "trigger_head_only": true,
