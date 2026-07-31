@@ -6,7 +6,7 @@ struct Config
 	std::string client_dll_name;
 	std::string engine_dll_name;
 	std::string  windowname;
-	int delay_between_shots = 120;
+	int delay_between_shots = 85;
 	bool ignore_same_team = true;
 	bool visible_targets_only = true;
 	float aim_fov_degrees = 9.0f;

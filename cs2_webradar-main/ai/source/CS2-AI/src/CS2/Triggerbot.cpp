@@ -22,6 +22,24 @@ float mix(float from, float to, float t)
 	return from + (to - from) * std::clamp(t, 0.0f, 1.0f);
 }
 
+float get_range_ratio(float distance)
+{
+	return std::clamp((distance - 650.0f) / 1700.0f, 0.0f, 1.0f);
+}
+
+void apply_distance_target_profile(
+	Vec3D<float>& target_point,
+	float target_distance,
+	float base_z_offset)
+{
+	const float offset_scale =
+		std::clamp(1200.0f / std::max(target_distance, 1.0f), 0.35f, 1.0f);
+	const float range_ratio = get_range_ratio(target_distance);
+	const float extra_z_bias = mix(0.70f, -5.8f, range_ratio);
+	target_point.z +=
+		(base_z_offset + extra_z_bias) * offset_scale;
+}
+
 Vec2D<float> get_active_recoil(const ControlledPlayer& player)
 {
 	Vec2D<float> recoil = player.recoil_signal;
@@ -63,29 +81,29 @@ AssistProfile build_assist_profile(
 		std::clamp((recoil_magnitude + view_punch_magnitude) / 0.12f, 0.0f, 1.0f);
 
 	AssistProfile profile{};
-	profile.assist_fov = mix(10.0f, 15.5f, dist_ratio);
-	profile.flick_enter_error = mix(1.1f, 2.2f, dist_ratio);
+	profile.assist_fov = mix(12.5f, 18.5f, dist_ratio);
+	profile.flick_enter_error = mix(0.85f, 1.8f, dist_ratio);
 	profile.flick_strength =
 		std::clamp(
-			0.90f - speed_ratio * 0.16f - shake_ratio * 0.12f,
-			0.68f,
-			0.94f);
+			0.97f - speed_ratio * 0.12f - shake_ratio * 0.08f,
+			0.82f,
+			1.00f);
 	profile.track_strength =
 		std::clamp(
-			0.46f + dist_ratio * 0.16f - speed_ratio * 0.14f,
-			0.30f,
-			0.68f);
+			0.62f + dist_ratio * 0.12f - speed_ratio * 0.10f,
+			0.46f,
+			0.84f);
 	profile.max_step =
 		std::clamp(
-			2.1f + target_distance / 950.0f - speed_ratio * 0.30f,
-			1.4f,
-			4.8f);
+			3.0f + target_distance / 820.0f - speed_ratio * 0.22f,
+			2.2f,
+			6.2f);
 	profile.micro_step =
 		std::clamp(
-			0.58f + target_distance / 3800.0f,
-			0.58f,
-			1.6f);
-	profile.brake_error = mix(0.32f, 0.44f, dist_ratio);
+			0.95f + target_distance / 3000.0f,
+			0.95f,
+			2.3f);
+	profile.brake_error = mix(0.18f, 0.30f, dist_ratio);
 	return profile;
 }
 
@@ -178,7 +196,10 @@ void Triggerbot::update(GameInformationhandler* handler)
 			game_info.controlled_player.head_position.distance(target_point);
 		const float offset_scale =
 			std::clamp(1200.0f / std::max(distance_to_target, 1.0f), 0.35f, 1.0f);
-		target_point.z += m_target_z_offset * offset_scale;
+		apply_distance_target_profile(
+			target_point,
+			distance_to_target,
+			m_target_z_offset);
 
 		const Vec3D<float> direction =
 			target_point - game_info.controlled_player.head_position;
@@ -302,12 +323,27 @@ void Triggerbot::update(GameInformationhandler* handler)
 				Vec2D<float> new_view{};
 				new_view.x = std::clamp(current_view.x + delta.x, -89.0f, 89.0f);
 				new_view.y = normalize_yaw(current_view.y + delta.y);
+				const bool ready_to_fire_now = now >= m_delay_time;
 				handler->set_view_vec(new_view);
 				m_last_written_view = new_view;
 				m_last_write_pending = true;
 				const int settle_delay_ms =
 					static_cast<int>(std::clamp(5.0f - error * 2.8f, 0.0f, 5.0f));
 				m_delay_time = std::max(m_delay_time, now + settle_delay_ms);
+
+				// Aggressive auto-shot once aligned, even before crosshair entity
+				// catches up to this new view sample.
+				const float prefire_error =
+					std::clamp(0.14f + best_distance / 7000.0f, 0.14f, 0.32f);
+				if (error <= prefire_error && ready_to_fire_now)
+				{
+					handler->click_player_weapon();
+					m_last_automatic_shot_at = now;
+					const int fast_follow_delay =
+						static_cast<int>(std::clamp(best_distance / 95.0f, 0.0f, 14.0f));
+					m_delay_time =
+						now + std::max({ 0, m_time_between_shots, fast_follow_delay });
+				}
 				return;
 			}
 		}
@@ -366,7 +402,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 	// Confirm a stable lock for a short period before firing.
 	// This reduces edge-of-head snapshots and micro-flick misses.
 	const int lock_confirmation_ms =
-		static_cast<int>(std::clamp(target_distance / 200.0f, 0.0f, 5.0f));
+		static_cast<int>(std::clamp(target_distance / 320.0f, 0.0f, 2.0f));
 	if ((now - m_head_lock_started_at) < lock_confirmation_ms)
 		return;
 
@@ -381,16 +417,12 @@ void Triggerbot::update(GameInformationhandler* handler)
 	if (now < m_delay_time)
 		return;
 
-	// A real mouse hold already controls the weapon; do not interrupt it.
-	if ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0)
-		return;
-
 	handler->click_player_weapon();
 	m_last_automatic_shot_at = now;
 	const int distance_delay =
-		static_cast<int>(std::clamp(target_distance / 60.0f, 0.0f, 35.0f));
+		static_cast<int>(std::clamp(target_distance / 80.0f, 0.0f, 18.0f));
 	const int recoil_delay =
-		static_cast<int>(std::clamp(recoil_magnitude * 35.0f, 0.0f, 40.0f));
+		static_cast<int>(std::clamp(recoil_magnitude * 20.0f, 0.0f, 20.0f));
 	m_delay_time =
 		now + std::max({ 0, m_time_between_shots, distance_delay, recoil_delay });
 	m_head_lock_started_at = 0;
@@ -449,12 +481,16 @@ bool Triggerbot::is_aimed_at_head(const GameInformation& game_info) const
 	Vec3D<float> target_point = game_info.player_in_crosshair->head_position;
 	const float target_distance =
 		game_info.controlled_player.head_position.distance(target_point);
+	const float range_ratio = get_range_ratio(target_distance);
 	const float screen_pitch = game_info.controlled_player.view_vec.x;
 	const float screen_yaw = game_info.controlled_player.view_vec.y;
 
 	const float offset_scale =
 		std::clamp(1200.0f / std::max(target_distance, 1.0f), 0.35f, 1.0f);
-	target_point.z += m_target_z_offset * offset_scale;
+	apply_distance_target_profile(
+		target_point,
+		target_distance,
+		m_target_z_offset);
 	const Vec3D<float> direction =
 		target_point - game_info.controlled_player.head_position;
 	const float horizontal_length =
@@ -511,9 +547,9 @@ bool Triggerbot::is_aimed_at_head(const GameInformation& game_info) const
 			0.01f,
 			std::min(
 				allowed_error,
-				raw_head_radius * 0.55f));
+				raw_head_radius * mix(0.60f, 2.10f, range_ratio)));
 	// A positive delta means the screen aim is above the head center.
-	if (raw_pitch_delta > strict_center_error * 0.6f)
+	if (raw_pitch_delta > raw_head_radius * 0.55f)
 		return false;
 	return raw_crosshair_error <= strict_center_error;
 }

@@ -6,6 +6,13 @@ void MovementStrategy::update(GameInformationhandler* game_info_handler)
 {
 	const GameInformation game_info = game_info_handler->get_game_information();
 	const auto current_time_ms = get_current_time_in_ms();
+	const bool space_held = (GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
+	const auto apply_bhop = [&](Movement& movement)
+	{
+		movement.jump =
+			space_held &&
+			game_info.controlled_player.on_ground;
+	};
 
 	handle_navmesh_load(game_info.current_map);
 
@@ -23,7 +30,9 @@ void MovementStrategy::update(GameInformationhandler* game_info_handler)
 
 	if (current_time_ms < m_delay_time)
 	{
-		game_info_handler->set_player_movement(Movement{});
+		Movement idle{};
+		apply_bhop(idle);
+		game_info_handler->set_player_movement(idle);
 		return;
 	}
 
@@ -32,7 +41,9 @@ void MovementStrategy::update(GameInformationhandler* game_info_handler)
 		if (!m_only_enemies || (game_info.player_in_crosshair->team != game_info.controlled_player.team)) 
 		{
 			constexpr int delay_in_ms = 500;
-			game_info_handler->set_player_movement(Movement{});
+			Movement hold{};
+			apply_bhop(hold);
+			game_info_handler->set_player_movement(hold);
 			m_delay_time = current_time_ms + delay_in_ms;
 			return;
 		}
@@ -58,6 +69,7 @@ void MovementStrategy::update(GameInformationhandler* game_info_handler)
 	if (m_next_node)
 	{
 		Movement move = calculate_move_info(game_info, m_next_node);
+		apply_bhop(move);
 		game_info_handler->set_player_movement(move);
 	}
 }

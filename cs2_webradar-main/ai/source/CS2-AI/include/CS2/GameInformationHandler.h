@@ -15,6 +15,7 @@ struct Movement
 	bool backward = false;
 	bool left = false;
 	bool right = false;
+	bool jump = false;
 };
 
 struct ControlledPlayer 

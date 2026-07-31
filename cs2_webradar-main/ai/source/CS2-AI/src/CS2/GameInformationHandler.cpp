@@ -111,11 +111,13 @@ void GameInformationhandler::set_player_movement(const Movement& movement)
 	constexpr DWORD s_key_code = 0x53;
 	constexpr DWORD a_key_code = 0x41;
 	constexpr DWORD d_key_code = 0x44;
+	constexpr DWORD space_key_code = VK_SPACE;
 
 	handle_key(movement.forward, w_key_code);
 	handle_key(movement.backward, s_key_code);
 	handle_key(movement.left, a_key_code);
 	handle_key(movement.right, d_key_code);
+	handle_key(movement.jump, space_key_code);
 }
 
 void GameInformationhandler::set_counter_strafe(const Movement& movement)

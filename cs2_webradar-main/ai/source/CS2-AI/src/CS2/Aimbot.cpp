@@ -11,6 +11,25 @@ float mix(float from, float to, float t)
 	return from + (to - from) * std::clamp(t, 0.0f, 1.0f);
 }
 
+float get_range_ratio(float distance)
+{
+	return std::clamp((distance - 650.0f) / 1700.0f, 0.0f, 1.0f);
+}
+
+void apply_distance_target_profile(
+	Vec3D<float>& target_point,
+	float target_distance,
+	float base_z_offset)
+{
+	const float offset_scale =
+		std::clamp(1200.0f / std::max(target_distance, 1.0f), 0.35f, 1.0f);
+	const float range_ratio = get_range_ratio(target_distance);
+	const float extra_z_bias =
+		mix(0.65f, -5.4f, range_ratio);
+	target_point.z +=
+		(base_z_offset + extra_z_bias) * offset_scale;
+}
+
 Vec2D<float> get_active_recoil(const ControlledPlayer& player)
 {
 	Vec2D<float> recoil = player.recoil_signal;
@@ -145,7 +164,10 @@ void Aimbot::update(GameInformationhandler* info_handler)
 			game_info.controlled_player.head_position.distance(target_point);
 		const float offset_scale =
 			std::clamp(1200.0f / std::max(target_distance, 1.0f), 0.35f, 1.0f);
-		target_point.z += m_target_z_offset * offset_scale;
+		apply_distance_target_profile(
+			target_point,
+			target_distance,
+			m_target_z_offset);
 		const Vec3D<float> direction =
 			target_point - game_info.controlled_player.head_position;
 		const float horizontal_length =

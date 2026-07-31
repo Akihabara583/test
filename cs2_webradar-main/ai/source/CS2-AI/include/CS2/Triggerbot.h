@@ -32,5 +32,5 @@ private:
 	float m_recoil_compensation = 0.0f;
 	bool m_last_write_pending = false;
 	Vec2D<float> m_last_written_view{};
-	int m_time_between_shots = 120;
+	int m_time_between_shots = 85;
 };

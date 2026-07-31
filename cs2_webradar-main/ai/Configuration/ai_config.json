@@ -3,7 +3,7 @@
   "aimbot": true,
   "triggerbot": true,
   "movement": false,
-  "trigger_delay_ms": 120,
+  "trigger_delay_ms": 85,
   "ignore_same_team": true,
   "visible_targets_only": true,
   "aim_fov_degrees": 12.0,

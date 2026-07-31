@@ -34,7 +34,7 @@ struct HeadlessSettings
 	bool aimbot = true;
 	bool triggerbot = true;
 	bool movement = false;
-	int trigger_delay_ms = 120;
+	int trigger_delay_ms = 85;
 	bool ignore_same_team = true;
 	bool visible_targets_only = true;
 	float aim_fov_degrees = 7.5f;
