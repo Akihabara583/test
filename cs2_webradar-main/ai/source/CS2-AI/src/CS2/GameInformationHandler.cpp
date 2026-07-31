@@ -120,6 +120,19 @@ void GameInformationhandler::set_player_movement(const Movement& movement)
 	handle_key(movement.jump, space_key_code);
 }
 
+void GameInformationhandler::set_player_jump(bool jump)
+{
+	if (jump == m_jump_pressed)
+		return;
+
+	HWND hwnd = FindWindowA(nullptr, m_config.windowname.c_str());
+	if (!hwnd)
+		return;
+
+	PostMessage(hwnd, jump ? WM_KEYDOWN : WM_KEYUP, VK_SPACE, 0);
+	m_jump_pressed = jump;
+}
+
 void GameInformationhandler::set_counter_strafe(const Movement& movement)
 {
 	HWND hwnd = FindWindowA(nullptr, m_config.windowname.c_str());
@@ -166,6 +179,7 @@ void GameInformationhandler::stop_actions()
 		return;
 
 	set_player_shooting(false);
+	set_player_jump(false);
 	set_counter_strafe(Movement{});
 	set_player_movement(Movement{});
 }

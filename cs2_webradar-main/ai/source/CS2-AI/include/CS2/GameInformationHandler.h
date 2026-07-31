@@ -68,6 +68,7 @@ public:
 	bool is_attached_to_process()const;
 	void set_view_vec(const Vec2D<float>& view_vec);
 	void set_player_movement(const Movement& movement);
+	void set_player_jump(bool jump);
 	void set_counter_strafe(const Movement& movement);
 	void set_player_shooting(bool val);
 	void click_player_weapon();
@@ -100,6 +101,7 @@ private:
 	Offsets m_offsets = {};
 	Config m_config = {};
 	Movement m_counter_strafe{};
+	bool m_jump_pressed = false;
 	std::vector<Vec3D<float>> m_active_smokes;
 	std::vector<Vec3D<float>> m_pending_smokes;
 	int m_next_smoke_entity_index = 65;

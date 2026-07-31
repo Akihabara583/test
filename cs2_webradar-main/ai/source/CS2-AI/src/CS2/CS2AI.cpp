@@ -11,6 +11,12 @@ void CS2Ai::update()
 		return;
 
 	m_game_info_handler->update_game_information();
+	const auto game_info = m_game_info_handler->get_game_information();
+	const bool space_held = (GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
+	m_game_info_handler->set_player_jump(
+		space_held &&
+		game_info.controlled_player.health > 0 &&
+		game_info.controlled_player.on_ground);
 
 	if (m_activated_behavior.aimbot)
 	{

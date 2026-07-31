@@ -254,9 +254,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 
 		// If no one is exactly under crosshair yet, softly guide aim to the best
 		// visible target in FOV so the shot can happen on the next samples.
-		if (now >= m_manual_override_until &&
-			(GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0 &&
-			game_info.controlled_player.health > 0)
+		if (game_info.controlled_player.health > 0)
 		{
 			const PlayerInformation* best_candidate = nullptr;
 			float best_error = std::numeric_limits<float>::max();
