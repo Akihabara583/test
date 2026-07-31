@@ -335,10 +335,15 @@ void Triggerbot::update(GameInformationhandler* handler)
 				const float vertical_error = std::abs(delta.x);
 				const float vertical_gate =
 					std::clamp(0.10f + best_distance / 9000.0f, 0.10f, 0.28f);
-				const bool not_above_head = delta.x >= -vertical_gate * 0.45f;
+				// A positive pitch delta means current aim is above the target center.
+				// Never prefire while still above head, even in aggressive mode.
+				const bool not_above_head = delta.x <= vertical_gate * 0.18f;
+				const bool first_bullet_prefire =
+					game_info.controlled_player.shots_fired <= 1;
 				if (error <= prefire_error &&
 					vertical_error <= vertical_gate &&
 					not_above_head &&
+					first_bullet_prefire &&
 					ready_to_fire_now)
 				{
 					handler->set_player_shooting(true);
