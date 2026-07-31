@@ -51,5 +51,7 @@ echo [INFO] Starting CS2 Web Radar...
 node.exe "%PROJECT_ROOT%launcher.mjs"
 set "EXIT_CODE=%ERRORLEVEL%"
 
-if not "%EXIT_CODE%"=="0" pause
+echo.
+echo [INFO] Launcher exited with code %EXIT_CODE%.
+pause
 endlocal & exit /b %EXIT_CODE%

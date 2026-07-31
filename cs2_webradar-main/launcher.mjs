@@ -79,8 +79,12 @@ const startChild = (name, command, args, cwd) => {
   child.on("exit", (code, signal) => {
     if (!stopping) {
       const result = signal ? `signal ${signal}` : `code ${code}`;
-      console.log(`${name} stopped (${result}).`);
-      stopAll("shutdown");
+      console.error(`${name} stopped unexpectedly (${result}).`);
+      console.error(
+        "Check console output above and verify required files/runtime are present."
+      );
+      const exitCode = Number.isInteger(code) && code !== 0 ? code : 1;
+      stopAll(`${name} failed`, exitCode);
     }
   });
 
