@@ -62,9 +62,9 @@ float get_recoil_gain(float base_compensation, const ControlledPlayer& player)
 			0.0f,
 			1.0f);
 	const float movement_penalty =
-		std::clamp(horizontal_speed / 260.0f, 0.0f, 1.0f) * 0.16f;
+		std::clamp(horizontal_speed / 260.0f, 0.0f, 1.0f) * 0.18f;
 	return std::clamp(
-		base_compensation * (0.96f + spray_ratio * 0.40f - movement_penalty),
+		base_compensation * (0.92f + spray_ratio * 0.30f - movement_penalty),
 		0.0f,
 		3.0f);
 }
@@ -82,34 +82,34 @@ AssistProfile build_assist_profile(
 		std::clamp((recoil_magnitude + view_punch_magnitude) / 0.12f, 0.0f, 1.0f);
 
 	AssistProfile profile{};
-	profile.assist_fov = mix(26.0f, 38.0f, dist_ratio);
-	profile.flick_enter_error = mix(0.45f, 1.60f, dist_ratio);
+	profile.assist_fov = mix(16.0f, 26.0f, dist_ratio);
+	profile.flick_enter_error = mix(0.50f, 1.20f, dist_ratio);
 	profile.flick_strength =
 		std::clamp(
-			1.00f - speed_ratio * 0.04f - shake_ratio * 0.03f,
-			0.92f,
+			0.94f - speed_ratio * 0.08f - shake_ratio * 0.06f,
+			0.78f,
 			1.00f);
 	profile.track_strength =
 		std::clamp(
-			0.88f + dist_ratio * 0.08f - speed_ratio * 0.03f,
-			0.80f,
-			1.00f);
+			0.74f + dist_ratio * 0.10f - speed_ratio * 0.08f - shake_ratio * 0.05f,
+			0.58f,
+			0.96f);
 	profile.max_step =
 		std::clamp(
-			9.5f + target_distance / 430.0f - speed_ratio * 0.08f,
-			7.0f,
-			17.0f);
+			6.2f + target_distance / 640.0f - speed_ratio * 0.14f,
+			4.5f,
+			11.5f);
 	profile.micro_step =
 		std::clamp(
-			3.2f + target_distance / 1400.0f,
-			3.2f,
-			8.0f);
-	profile.brake_error = mix(0.08f, 0.18f, dist_ratio);
+			2.0f + target_distance / 2200.0f,
+			2.0f,
+			5.0f);
+	profile.brake_error = mix(0.11f, 0.20f, dist_ratio);
 	// Avoid sticky over-tracking during long spray sequences.
-	profile.assist_fov *= mix(1.0f, 0.92f, spray_ratio);
-	profile.flick_enter_error *= mix(1.0f, 0.94f, spray_ratio);
-	profile.max_step *= mix(1.0f, 0.90f, spray_ratio);
-	profile.micro_step *= mix(1.0f, 0.94f, spray_ratio);
+	profile.assist_fov *= mix(1.0f, 0.68f, spray_ratio);
+	profile.flick_enter_error *= mix(1.0f, 0.74f, spray_ratio);
+	profile.max_step *= mix(1.0f, 0.64f, spray_ratio);
+	profile.micro_step *= mix(1.0f, 0.78f, spray_ratio);
 	return profile;
 }
 
@@ -344,20 +344,32 @@ void Triggerbot::update(GameInformationhandler* handler)
 				// Aggressive auto-shot once aligned, even before crosshair entity
 				// catches up to this new view sample.
 				const float prefire_error =
-					std::clamp(0.40f + best_distance / 3200.0f, 0.40f, 0.95f);
+					std::clamp(0.30f + best_distance / 4600.0f, 0.30f, 0.70f);
 				const float vertical_error = std::abs(delta.x);
 				const float vertical_gate =
-					std::clamp(0.14f + best_distance / 7000.0f, 0.14f, 0.36f);
+					std::clamp(0.12f + best_distance / 7600.0f, 0.12f, 0.30f);
 				// A positive pitch delta means current aim is above the target center.
 				// Never prefire while still above head, even in aggressive mode.
-				const bool not_above_head = delta.x <= vertical_gate * 0.35f;
+				const bool not_above_head = delta.x <= vertical_gate * 0.22f;
+				const bool auto_fire_lock =
+					error <= std::max(prefire_error, profile.flick_enter_error * 1.40f) &&
+					not_above_head;
 				if (error <= prefire_error &&
 					vertical_error <= vertical_gate &&
 					not_above_head &&
 					ready_to_fire_now)
 				{
 					handler->set_player_shooting(true);
-					m_attack_release_at = now + 10;
+					m_attack_release_at = now + 60;
+					m_last_automatic_shot_at = now;
+					m_delay_time = now + std::max(0, m_time_between_shots);
+				}
+				else if (auto_fire_lock && ready_to_fire_now)
+				{
+					// Keep attack pressed briefly while lock is valid so automatic
+					// weapons reliably fire even on short visibility windows.
+					handler->set_player_shooting(true);
+					m_attack_release_at = now + 60;
 					m_last_automatic_shot_at = now;
 					m_delay_time = now + std::max(0, m_time_between_shots);
 				}
@@ -423,7 +435,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 		return;
 
 	// If recoil/view punch is still settling, wait one more sample.
-	const float settle_gate = 2.20f;
+	const float settle_gate = 1.20f;
 	if (recoil_magnitude > settle_gate || view_punch_magnitude > settle_gate)
 		return;
 
@@ -434,7 +446,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 		return;
 
 	handler->set_player_shooting(true);
-	m_attack_release_at = now + 10;
+	m_attack_release_at = now + 60;
 	m_last_automatic_shot_at = now;
 	m_delay_time = now + std::max(0, m_time_between_shots);
 	m_head_lock_started_at = 0;

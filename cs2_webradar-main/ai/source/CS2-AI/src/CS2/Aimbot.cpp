@@ -73,7 +73,7 @@ RecoilCompensation build_recoil_compensation(
 	const float recoil_alpha =
 		player.shots_fired == 0
 		? 0.0f
-		: mix(0.30f, 0.62f, spray_ratio);
+		: mix(0.28f, 0.50f, spray_ratio);
 	result.filtered.x =
 		previous_filtered.x +
 		(raw_recoil.x - previous_filtered.x) * recoil_alpha;
@@ -91,21 +91,21 @@ RecoilCompensation build_recoil_compensation(
 		result.filtered.x - previous_filtered.x,
 		result.filtered.y - previous_filtered.y
 	};
-	const float recoil_lead = mix(0.05f, 0.22f, spray_ratio);
+	const float recoil_lead = mix(0.03f, 0.12f, spray_ratio);
 	const float movement_ratio =
 		std::clamp(result.horizontal_speed / 260.0f, 0.0f, 1.0f);
 	const float pitch_gain =
 		std::clamp(
 			base_compensation *
-			(0.92f + spray_ratio * 0.34f - movement_ratio * 0.12f),
+			(0.90f + spray_ratio * 0.24f - movement_ratio * 0.14f),
 			0.0f,
-			3.2f);
+			2.9f);
 	const float yaw_gain =
 		std::clamp(
 			base_compensation *
-			(0.68f + spray_ratio * 0.30f - movement_ratio * 0.20f),
+			(0.66f + spray_ratio * 0.20f - movement_ratio * 0.24f),
 			0.0f,
-			2.6f);
+			2.2f);
 	result.compensation.x =
 		(result.filtered.x + recoil_velocity.x * recoil_lead) * pitch_gain;
 	result.compensation.y =
@@ -211,9 +211,9 @@ void Aimbot::update(GameInformationhandler* info_handler)
 	}
 
 	float effective_smoothing =
-		std::clamp(m_smoothing + recoil.spray_ratio * 0.28f, 0.01f, 1.0f);
+		std::clamp(m_smoothing - recoil.spray_ratio * 0.18f, 0.55f, 1.0f);
 	float effective_step =
-		m_max_step_degrees * (1.0f + recoil.spray_ratio * 1.15f);
+		m_max_step_degrees * (1.0f + recoil.spray_ratio * 0.45f);
 	if (recoil.horizontal_speed > 65.0f)
 	{
 		effective_step *=
