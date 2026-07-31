@@ -1,0 +1,21 @@
+{
+  "start_enabled": false,
+  "aimbot": true,
+  "triggerbot": true,
+  "movement": false,
+  "trigger_delay_ms": 100,
+  "ignore_same_team": true,
+  "visible_targets_only": true,
+  "aim_fov_degrees": 7.5,
+  "aim_smoothing": 0.32,
+  "aim_max_step_degrees": 1.8,
+  "aim_target_z_offset": 0.0,
+  "aim_target_left_offset": 0.0,
+  "manual_mouse_override_ms": 140,
+  "trigger_head_only": true,
+  "trigger_head_tolerance_degrees": 0.03,
+  "recoil_compensation": 2.0,
+  "only_accurate_shots": true,
+  "max_shot_speed": 350.0,
+  "auto_stop": true
+}
