@@ -34,29 +34,29 @@ AssistProfile build_assist_profile(
 		std::clamp((recoil_magnitude + view_punch_magnitude) / 0.12f, 0.0f, 1.0f);
 
 	AssistProfile profile{};
-	profile.assist_fov = mix(8.5f, 13.5f, dist_ratio);
-	profile.flick_enter_error = mix(2.2f, 3.8f, dist_ratio);
+	profile.assist_fov = mix(9.8f, 15.2f, dist_ratio);
+	profile.flick_enter_error = mix(1.5f, 2.8f, dist_ratio);
 	profile.flick_strength =
 		std::clamp(
-			0.74f - speed_ratio * 0.18f - shake_ratio * 0.22f,
-			0.40f,
-			0.74f);
+			0.88f - speed_ratio * 0.20f - shake_ratio * 0.20f,
+			0.55f,
+			0.90f);
 	profile.track_strength =
 		std::clamp(
-			0.26f + dist_ratio * 0.14f - speed_ratio * 0.10f,
-			0.16f,
-			0.45f);
+			0.36f + dist_ratio * 0.18f - speed_ratio * 0.12f,
+			0.24f,
+			0.62f);
 	profile.max_step =
 		std::clamp(
-			1.0f + target_distance / 1500.0f - speed_ratio * 0.25f,
-			0.70f,
-			1.85f);
+			1.35f + target_distance / 1200.0f - speed_ratio * 0.30f,
+			0.90f,
+			2.60f);
 	profile.micro_step =
 		std::clamp(
-			0.18f + target_distance / 6000.0f,
-			0.18f,
-			0.42f);
-	profile.brake_error = mix(0.52f, 0.70f, dist_ratio);
+			0.30f + target_distance / 4200.0f,
+			0.30f,
+			0.85f);
+	profile.brake_error = mix(0.42f, 0.56f, dist_ratio);
 	return profile;
 }
 
@@ -256,7 +256,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 				new_view.y = normalize_yaw(current_view.y + delta.y);
 				handler->set_view_vec(new_view);
 				const int settle_delay_ms =
-					static_cast<int>(std::clamp(18.0f - error * 2.0f, 8.0f, 18.0f));
+					static_cast<int>(std::clamp(13.0f - error * 2.5f, 5.0f, 13.0f));
 				m_delay_time = std::max(m_delay_time, now + settle_delay_ms);
 				return;
 			}
