@@ -12,7 +12,7 @@ struct Config
 	float aim_fov_degrees = 9.0f;
 	float aim_smoothing = 0.48f;
 	float aim_max_step_degrees = 2.6f;
-	float aim_target_z_offset = 2.5f;
+	float aim_target_z_offset = -1.6f;
 	float aim_target_left_offset = 1.2f;
 	int manual_mouse_override_ms = 80;
 	bool trigger_head_only = true;
