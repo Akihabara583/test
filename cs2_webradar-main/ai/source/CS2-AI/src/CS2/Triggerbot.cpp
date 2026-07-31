@@ -35,7 +35,7 @@ void apply_distance_target_profile(
 	const float offset_scale =
 		std::clamp(1200.0f / std::max(target_distance, 1.0f), 0.35f, 1.0f);
 	const float range_ratio = get_range_ratio(target_distance);
-	const float extra_z_bias = mix(0.70f, -5.8f, range_ratio);
+	const float extra_z_bias = mix(0.55f, -3.2f, range_ratio);
 	target_point.z +=
 		(base_z_offset + extra_z_bias) * offset_scale;
 }
@@ -81,29 +81,29 @@ AssistProfile build_assist_profile(
 		std::clamp((recoil_magnitude + view_punch_magnitude) / 0.12f, 0.0f, 1.0f);
 
 	AssistProfile profile{};
-	profile.assist_fov = mix(18.0f, 28.0f, dist_ratio);
-	profile.flick_enter_error = mix(0.35f, 0.90f, dist_ratio);
+	profile.assist_fov = mix(14.0f, 22.0f, dist_ratio);
+	profile.flick_enter_error = mix(0.55f, 1.20f, dist_ratio);
 	profile.flick_strength =
 		std::clamp(
-			1.00f - speed_ratio * 0.05f - shake_ratio * 0.03f,
-			0.92f,
+			0.95f - speed_ratio * 0.10f - shake_ratio * 0.06f,
+			0.80f,
 			1.00f);
 	profile.track_strength =
 		std::clamp(
-			0.90f + dist_ratio * 0.08f - speed_ratio * 0.04f,
-			0.78f,
+			0.76f + dist_ratio * 0.10f - speed_ratio * 0.08f,
+			0.62f,
 			1.00f);
 	profile.max_step =
 		std::clamp(
-			8.5f + target_distance / 520.0f - speed_ratio * 0.10f,
-			7.0f,
-			14.0f);
+			5.4f + target_distance / 760.0f - speed_ratio * 0.16f,
+			4.0f,
+			9.0f);
 	profile.micro_step =
 		std::clamp(
-			3.2f + target_distance / 1800.0f,
-			3.2f,
-			8.5f);
-	profile.brake_error = mix(0.06f, 0.14f, dist_ratio);
+			1.8f + target_distance / 2400.0f,
+			1.8f,
+			4.2f);
+	profile.brake_error = mix(0.12f, 0.22f, dist_ratio);
 	return profile;
 }
 
@@ -413,7 +413,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 		return;
 
 	// If recoil/view punch is still settling, wait one more sample.
-	const float settle_gate = 0.55f;
+	const float settle_gate = 0.42f;
 	if (recoil_magnitude > settle_gate || view_punch_magnitude > settle_gate)
 		return;
 
@@ -555,10 +555,10 @@ bool Triggerbot::is_aimed_at_head(const GameInformation& game_info) const
 			0.01f,
 			std::min(
 				allowed_error,
-				raw_head_radius * mix(0.60f, 2.10f, range_ratio))) *
-		mix(1.0f, 0.64f, spray_ratio);
+				raw_head_radius * mix(0.56f, 1.18f, range_ratio))) *
+		mix(1.0f, 0.58f, spray_ratio);
 	// A positive delta means the screen aim is above the head center.
-	if (raw_pitch_delta > raw_head_radius * mix(0.55f, 0.32f, spray_ratio))
+	if (raw_pitch_delta > raw_head_radius * mix(0.44f, 0.24f, spray_ratio))
 		return false;
 	return raw_crosshair_error <= strict_center_error;
 }
