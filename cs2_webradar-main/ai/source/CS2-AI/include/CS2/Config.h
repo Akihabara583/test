@@ -6,7 +6,7 @@ struct Config
 	std::string client_dll_name;
 	std::string engine_dll_name;
 	std::string  windowname;
-	int delay_between_shots = 0;
+	int delay_between_shots = 120;
 	bool ignore_same_team = true;
 	bool visible_targets_only = true;
 	float aim_fov_degrees = 9.0f;
@@ -19,7 +19,7 @@ struct Config
 	float trigger_head_tolerance_degrees = 0.03f;
 	float recoil_compensation = 2.0f;
 	bool only_accurate_shots = true;
-	float max_shot_speed = 350.0f;
+	float max_shot_speed = 500.0f;
 	bool auto_stop = true;
 	//DWORD trigger_button = 0;
 };

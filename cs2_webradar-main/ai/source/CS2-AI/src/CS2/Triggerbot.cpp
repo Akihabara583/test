@@ -34,29 +34,29 @@ AssistProfile build_assist_profile(
 		std::clamp((recoil_magnitude + view_punch_magnitude) / 0.12f, 0.0f, 1.0f);
 
 	AssistProfile profile{};
-	profile.assist_fov = mix(9.8f, 15.2f, dist_ratio);
-	profile.flick_enter_error = mix(1.5f, 2.8f, dist_ratio);
+	profile.assist_fov = mix(12.0f, 18.0f, dist_ratio);
+	profile.flick_enter_error = mix(0.8f, 1.8f, dist_ratio);
 	profile.flick_strength =
 		std::clamp(
-			0.88f - speed_ratio * 0.20f - shake_ratio * 0.20f,
-			0.55f,
-			0.90f);
+			0.98f - speed_ratio * 0.10f - shake_ratio * 0.08f,
+			0.80f,
+			1.00f);
 	profile.track_strength =
 		std::clamp(
-			0.36f + dist_ratio * 0.18f - speed_ratio * 0.12f,
-			0.24f,
-			0.62f);
+			0.62f + dist_ratio * 0.14f - speed_ratio * 0.06f,
+			0.50f,
+			0.85f);
 	profile.max_step =
 		std::clamp(
-			1.35f + target_distance / 1200.0f - speed_ratio * 0.30f,
-			0.90f,
-			2.60f);
+			2.8f + target_distance / 800.0f - speed_ratio * 0.15f,
+			2.0f,
+			6.5f);
 	profile.micro_step =
 		std::clamp(
-			0.30f + target_distance / 4200.0f,
-			0.30f,
-			0.85f);
-	profile.brake_error = mix(0.42f, 0.56f, dist_ratio);
+			0.95f + target_distance / 3000.0f,
+			0.95f,
+			2.4f);
+	profile.brake_error = mix(0.16f, 0.24f, dist_ratio);
 	return profile;
 }
 
@@ -244,7 +244,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 				if (!flick_phase && error < profile.brake_error)
 				{
 					const float brake_ratio =
-						std::clamp(error / std::max(profile.brake_error, 0.001f), 0.35f, 1.0f);
+						std::clamp(error / std::max(profile.brake_error, 0.001f), 0.85f, 1.0f);
 					step_limit *= brake_ratio;
 				}
 
@@ -256,7 +256,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 				new_view.y = normalize_yaw(current_view.y + delta.y);
 				handler->set_view_vec(new_view);
 				const int settle_delay_ms =
-					static_cast<int>(std::clamp(13.0f - error * 2.5f, 5.0f, 13.0f));
+					static_cast<int>(std::clamp(5.0f - error * 2.8f, 0.0f, 5.0f));
 				m_delay_time = std::max(m_delay_time, now + settle_delay_ms);
 				return;
 			}
@@ -316,12 +316,12 @@ void Triggerbot::update(GameInformationhandler* handler)
 	// Confirm a stable lock for a short period before firing.
 	// This reduces edge-of-head snapshots and micro-flick misses.
 	const int lock_confirmation_ms =
-		static_cast<int>(std::clamp(target_distance / 45.0f, 8.0f, 28.0f));
+		static_cast<int>(std::clamp(target_distance / 200.0f, 0.0f, 5.0f));
 	if ((now - m_head_lock_started_at) < lock_confirmation_ms)
 		return;
 
 	// If recoil/view punch is still settling, wait one more sample.
-	const float settle_gate = std::clamp(0.02f + target_distance / 120000.0f, 0.02f, 0.045f);
+	const float settle_gate = std::clamp(0.08f + target_distance / 40000.0f, 0.08f, 0.25f);
 	if (recoil_magnitude > settle_gate || view_punch_magnitude > settle_gate)
 		return;
 
@@ -338,11 +338,11 @@ void Triggerbot::update(GameInformationhandler* handler)
 	handler->click_player_weapon();
 	m_last_automatic_shot_at = now;
 	const int distance_delay =
-		static_cast<int>(std::clamp(target_distance / 10.0f, 75.0f, 240.0f));
+		static_cast<int>(std::clamp(target_distance / 60.0f, 0.0f, 35.0f));
 	const int recoil_delay =
-		static_cast<int>(std::clamp(recoil_magnitude * 90.0f, 0.0f, 120.0f));
+		static_cast<int>(std::clamp(recoil_magnitude * 35.0f, 0.0f, 40.0f));
 	m_delay_time =
-		now + std::max({ 70, m_time_between_shots, distance_delay, recoil_delay });
+		now + std::max({ 0, m_time_between_shots, distance_delay, recoil_delay });
 	m_head_lock_started_at = 0;
 }
 
@@ -365,7 +365,7 @@ void Triggerbot::set_head_only(bool head_only, float tolerance_degrees)
 void Triggerbot::set_accuracy_gate(bool enabled, float max_speed, bool auto_stop)
 {
 	m_only_accurate_shots = enabled;
-	m_max_shot_speed = std::clamp(max_speed, 0.0f, 350.0f);
+	m_max_shot_speed = std::clamp(max_speed, 0.0f, 500.0f);
 	m_auto_stop = auto_stop;
 }
 

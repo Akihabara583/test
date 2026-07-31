@@ -34,7 +34,7 @@ struct HeadlessSettings
 	bool aimbot = true;
 	bool triggerbot = true;
 	bool movement = false;
-	int trigger_delay_ms = 75;
+	int trigger_delay_ms = 120;
 	bool ignore_same_team = true;
 	bool visible_targets_only = true;
 	float aim_fov_degrees = 7.5f;
@@ -47,7 +47,7 @@ struct HeadlessSettings
 	float trigger_head_tolerance_degrees = 0.03f;
 	float recoil_compensation = 2.0f;
 	bool only_accurate_shots = true;
-	float max_shot_speed = 350.0f;
+	float max_shot_speed = 500.0f;
 	bool auto_stop = true;
 };
 
@@ -106,7 +106,7 @@ static HeadlessSettings load_settings()
 			std::clamp(
 				json.value("max_shot_speed", result.max_shot_speed),
 				0.0f,
-				350.0f);
+				500.0f);
 		result.auto_stop = json.value("auto_stop", result.auto_stop);
 	}
 	catch (const std::exception& error)

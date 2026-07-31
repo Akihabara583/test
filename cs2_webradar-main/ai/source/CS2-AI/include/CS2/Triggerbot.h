@@ -24,10 +24,10 @@ private:
 	bool m_head_only = true;
 	float m_head_tolerance_degrees = 0.55f;
 	bool m_only_accurate_shots = true;
-	float m_max_shot_speed = 350.0f;
+	float m_max_shot_speed = 500.0f;
 	bool m_auto_stop = false;
 	float m_target_z_offset = 0.0f;
 	float m_target_left_offset = 0.0f;
 	float m_recoil_compensation = 0.0f;
-	int m_time_between_shots = 500;
+	int m_time_between_shots = 120;
 };
