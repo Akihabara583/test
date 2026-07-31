@@ -3,5 +3,7 @@
 .idea
 
 # others
-release
+release/*
+!release/usermode.exe
+!release/config.json
 vcpkg_installed
