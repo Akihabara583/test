@@ -15,7 +15,16 @@ bool cfg::setup(config_data_t& config_data)
 		return {};
 	}
 
-	const auto parsed_data = nlohmann::json::parse(file);
+	nlohmann::json parsed_data;
+	try
+	{
+		parsed_data = nlohmann::json::parse(file);
+	}
+	catch (const std::exception& e)
+	{
+		LOG_ERROR("failed to parse 'config.json' (%s)", e.what());
+		return {};
+	}
 	if (parsed_data.empty())
 	{
 		LOG_ERROR("failed to parse 'config.json'");
