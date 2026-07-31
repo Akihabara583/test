@@ -152,6 +152,11 @@ void Triggerbot::update(GameInformationhandler* handler)
 
 	const GameInformation game_info = handler->get_game_information();
 	const long long now = get_current_time_in_ms();
+	if (m_attack_release_at > 0 && now >= m_attack_release_at)
+	{
+		handler->set_player_shooting(false);
+		m_attack_release_at = 0;
+	}
 	const float horizontal_speed =
 		std::sqrt(
 			game_info.controlled_player.velocity.x * game_info.controlled_player.velocity.x +
@@ -335,7 +340,8 @@ void Triggerbot::update(GameInformationhandler* handler)
 					std::clamp(0.14f + best_distance / 7000.0f, 0.14f, 0.32f);
 				if (error <= prefire_error && ready_to_fire_now)
 				{
-					handler->click_player_weapon();
+					handler->set_player_shooting(true);
+					m_attack_release_at = now + 10;
 					m_last_automatic_shot_at = now;
 					const int fast_follow_delay =
 						static_cast<int>(std::clamp(best_distance / 95.0f, 0.0f, 14.0f));
@@ -415,7 +421,8 @@ void Triggerbot::update(GameInformationhandler* handler)
 	if (now < m_delay_time)
 		return;
 
-	handler->click_player_weapon();
+	handler->set_player_shooting(true);
+	m_attack_release_at = now + 10;
 	m_last_automatic_shot_at = now;
 	const int distance_delay =
 		static_cast<int>(std::clamp(target_distance / 80.0f, 0.0f, 18.0f));
@@ -469,6 +476,7 @@ void Triggerbot::reset()
 	m_last_automatic_shot_at = 0;
 	m_last_write_pending = false;
 	m_last_written_view = {};
+	m_attack_release_at = 0;
 }
 
 bool Triggerbot::is_aimed_at_head(const GameInformation& game_info) const
