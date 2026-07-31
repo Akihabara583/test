@@ -21,6 +21,7 @@ private:
 	bool m_shoot_at_teammates = false;
 	int m_current_target_entity_index = -1;
 	long long m_head_lock_started_at = 0;
+	long long m_manual_override_until = 0;
 	bool m_head_only = true;
 	float m_head_tolerance_degrees = 0.55f;
 	bool m_only_accurate_shots = true;
@@ -29,5 +30,7 @@ private:
 	float m_target_z_offset = 0.0f;
 	float m_target_left_offset = 0.0f;
 	float m_recoil_compensation = 0.0f;
+	bool m_last_write_pending = false;
+	Vec2D<float> m_last_written_view{};
 	int m_time_between_shots = 120;
 };

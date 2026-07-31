@@ -22,6 +22,32 @@ float mix(float from, float to, float t)
 	return from + (to - from) * std::clamp(t, 0.0f, 1.0f);
 }
 
+Vec2D<float> get_active_recoil(const ControlledPlayer& player)
+{
+	Vec2D<float> recoil = player.recoil_signal;
+	const float recoil_magnitude =
+		std::sqrt(recoil.x * recoil.x + recoil.y * recoil.y);
+	if (recoil_magnitude < 0.001f)
+		recoil = player.aim_punch;
+	return recoil;
+}
+
+float get_recoil_gain(float base_compensation, const ControlledPlayer& player)
+{
+	const float horizontal_speed =
+		std::sqrt(
+			player.velocity.x * player.velocity.x +
+			player.velocity.y * player.velocity.y);
+	const float spray_ratio =
+		std::clamp(static_cast<float>(player.shots_fired) / 8.0f, 0.0f, 1.0f);
+	const float movement_penalty =
+		std::clamp(horizontal_speed / 260.0f, 0.0f, 1.0f) * 0.18f;
+	return std::clamp(
+		base_compensation * (0.90f + spray_ratio * 0.55f - movement_penalty),
+		0.0f,
+		4.0f);
+}
+
 AssistProfile build_assist_profile(
 	float target_distance,
 	float horizontal_speed,
@@ -34,29 +60,29 @@ AssistProfile build_assist_profile(
 		std::clamp((recoil_magnitude + view_punch_magnitude) / 0.12f, 0.0f, 1.0f);
 
 	AssistProfile profile{};
-	profile.assist_fov = mix(12.0f, 18.0f, dist_ratio);
-	profile.flick_enter_error = mix(0.8f, 1.8f, dist_ratio);
+	profile.assist_fov = mix(10.0f, 15.5f, dist_ratio);
+	profile.flick_enter_error = mix(1.1f, 2.2f, dist_ratio);
 	profile.flick_strength =
 		std::clamp(
-			0.98f - speed_ratio * 0.10f - shake_ratio * 0.08f,
-			0.80f,
-			1.00f);
+			0.90f - speed_ratio * 0.16f - shake_ratio * 0.12f,
+			0.68f,
+			0.94f);
 	profile.track_strength =
 		std::clamp(
-			0.62f + dist_ratio * 0.14f - speed_ratio * 0.06f,
-			0.50f,
-			0.85f);
+			0.46f + dist_ratio * 0.16f - speed_ratio * 0.14f,
+			0.30f,
+			0.68f);
 	profile.max_step =
 		std::clamp(
-			2.8f + target_distance / 800.0f - speed_ratio * 0.15f,
-			2.0f,
-			6.5f);
+			2.1f + target_distance / 950.0f - speed_ratio * 0.30f,
+			1.4f,
+			4.8f);
 	profile.micro_step =
 		std::clamp(
-			0.95f + target_distance / 3000.0f,
-			0.95f,
-			2.4f);
-	profile.brake_error = mix(0.16f, 0.24f, dist_ratio);
+			0.58f + target_distance / 3800.0f,
+			0.58f,
+			1.6f);
+	profile.brake_error = mix(0.32f, 0.44f, dist_ratio);
 	return profile;
 }
 
@@ -126,7 +152,17 @@ void Triggerbot::update(GameInformationhandler* handler)
 		? game_info.controlled_player.head_position.distance(
 			game_info.player_in_crosshair->head_position)
 		: 0.0f;
+	const Vec2D<float> active_recoil =
+		get_active_recoil(game_info.controlled_player);
+	const float recoil_gain =
+		get_recoil_gain(m_recoil_compensation, game_info.controlled_player);
 	const Vec2D<float> current_view = game_info.controlled_player.view_vec;
+	if (m_last_write_pending)
+	{
+		if (angle_distance(current_view, m_last_written_view) > 0.10f)
+			m_manual_override_until = now + 140;
+		m_last_write_pending = false;
+	}
 	const auto calc_target_view =
 		[&](const PlayerInformation& target)
 	{
@@ -156,11 +192,11 @@ void Triggerbot::update(GameInformationhandler* handler)
 		Vec2D<float> desired_view =
 			calc_view_vec_to_point(game_info.controlled_player.head_position, target_point);
 		desired_view.x -=
-			game_info.controlled_player.aim_punch.x * m_recoil_compensation;
+			active_recoil.x * recoil_gain;
 		desired_view.y =
 			normalize_yaw(
 				desired_view.y -
-				game_info.controlled_player.aim_punch.y * m_recoil_compensation);
+				active_recoil.y * recoil_gain);
 		return desired_view;
 	};
 	float distance_speed_limit = m_max_shot_speed;
@@ -190,7 +226,8 @@ void Triggerbot::update(GameInformationhandler* handler)
 
 		// If no one is exactly under crosshair yet, softly guide aim to the best
 		// visible target in FOV so the shot can happen on the next samples.
-		if ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0 &&
+		if (now >= m_manual_override_until &&
+			(GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0 &&
 			game_info.controlled_player.health > 0)
 		{
 			const PlayerInformation* best_candidate = nullptr;
@@ -244,9 +281,13 @@ void Triggerbot::update(GameInformationhandler* handler)
 				if (!flick_phase && error < profile.brake_error)
 				{
 					const float brake_ratio =
-						std::clamp(error / std::max(profile.brake_error, 0.001f), 0.85f, 1.0f);
+						std::clamp(error / std::max(profile.brake_error, 0.001f), 0.65f, 1.0f);
 					step_limit *= brake_ratio;
 				}
+
+				// Avoid hard side-pull while strafing fast.
+				if (horizontal_speed > 95.0f)
+					step_limit *= std::clamp(1.0f - horizontal_speed / 320.0f, 0.35f, 1.0f);
 
 				delta.x = std::clamp(delta.x * strength, -step_limit, step_limit);
 				delta.y = std::clamp(delta.y * strength, -step_limit, step_limit);
@@ -255,6 +296,8 @@ void Triggerbot::update(GameInformationhandler* handler)
 				new_view.x = std::clamp(current_view.x + delta.x, -89.0f, 89.0f);
 				new_view.y = normalize_yaw(current_view.y + delta.y);
 				handler->set_view_vec(new_view);
+				m_last_written_view = new_view;
+				m_last_write_pending = true;
 				const int settle_delay_ms =
 					static_cast<int>(std::clamp(5.0f - error * 2.8f, 0.0f, 5.0f));
 				m_delay_time = std::max(m_delay_time, now + settle_delay_ms);
@@ -384,8 +427,11 @@ void Triggerbot::reset()
 {
 	m_current_target_entity_index = -1;
 	m_head_lock_started_at = 0;
+	m_manual_override_until = 0;
 	m_delay_time = 0;
 	m_last_automatic_shot_at = 0;
+	m_last_write_pending = false;
+	m_last_written_view = {};
 }
 
 bool Triggerbot::is_aimed_at_head(const GameInformation& game_info) const
@@ -420,12 +466,16 @@ bool Triggerbot::is_aimed_at_head(const GameInformation& game_info) const
 
 	Vec2D<float> desired_view =
 		calc_view_vec_to_point(game_info.controlled_player.head_position, target_point);
+	const Vec2D<float> active_recoil =
+		get_active_recoil(game_info.controlled_player);
+	const float recoil_gain =
+		get_recoil_gain(m_recoil_compensation, game_info.controlled_player);
 	desired_view.x -=
-		game_info.controlled_player.aim_punch.x * m_recoil_compensation;
+		active_recoil.x * recoil_gain;
 	desired_view.y =
 		normalize_yaw(
 			desired_view.y -
-			game_info.controlled_player.aim_punch.y * m_recoil_compensation);
+			active_recoil.y * recoil_gain);
 
 	float raw_yaw_delta = normalize_yaw(desired_view.y - screen_yaw);
 	const float raw_pitch_delta =

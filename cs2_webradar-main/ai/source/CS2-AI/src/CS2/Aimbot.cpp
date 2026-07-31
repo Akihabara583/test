@@ -4,6 +4,35 @@
 #include <cfloat>
 #include <cmath>
 
+namespace
+{
+Vec2D<float> get_active_recoil(const ControlledPlayer& player)
+{
+	Vec2D<float> recoil = player.recoil_signal;
+	const float recoil_magnitude =
+		std::sqrt(recoil.x * recoil.x + recoil.y * recoil.y);
+	if (recoil_magnitude < 0.001f)
+		recoil = player.aim_punch;
+	return recoil;
+}
+
+float get_recoil_gain(float base_compensation, const ControlledPlayer& player)
+{
+	const float horizontal_speed =
+		std::sqrt(
+			player.velocity.x * player.velocity.x +
+			player.velocity.y * player.velocity.y);
+	const float spray_ratio =
+		std::clamp(static_cast<float>(player.shots_fired) / 8.0f, 0.0f, 1.0f);
+	const float movement_penalty =
+		std::clamp(horizontal_speed / 260.0f, 0.0f, 1.0f) * 0.18f;
+	return std::clamp(
+		base_compensation * (0.90f + spray_ratio * 0.55f - movement_penalty),
+		0.0f,
+		4.0f);
+}
+}
+
 void Aimbot::update(GameInformationhandler* info_handler)
 {
 	if (!info_handler)
@@ -25,6 +54,11 @@ void Aimbot::update(GameInformationhandler* info_handler)
 
 	if (now < m_manual_override_until)
 		return;
+
+	const Vec2D<float> active_recoil =
+		get_active_recoil(game_info.controlled_player);
+	const float recoil_gain =
+		get_recoil_gain(m_recoil_compensation, game_info.controlled_player);
 
 	float best_error = FLT_MAX;
 	Vec2D<float> best_target_view{};
@@ -63,10 +97,10 @@ void Aimbot::update(GameInformationhandler* info_handler)
 		Vec2D<float> target_view =
 			calc_view_vec_aim_to_head(game_info.controlled_player.head_position, target_point);
 		target_view.x -=
-			game_info.controlled_player.aim_punch.x * m_recoil_compensation;
+			active_recoil.x * recoil_gain;
 		target_view.y = normalize_yaw(
 			target_view.y -
-			game_info.controlled_player.aim_punch.y * m_recoil_compensation);
+			active_recoil.y * recoil_gain);
 		const float error = angle_distance(current_view, target_view);
 		if (error <= m_fov_degrees && error < best_error)
 		{
