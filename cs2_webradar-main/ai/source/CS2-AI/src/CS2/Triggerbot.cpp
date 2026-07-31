@@ -82,34 +82,34 @@ AssistProfile build_assist_profile(
 		std::clamp((recoil_magnitude + view_punch_magnitude) / 0.12f, 0.0f, 1.0f);
 
 	AssistProfile profile{};
-	profile.assist_fov = mix(16.0f, 26.0f, dist_ratio);
-	profile.flick_enter_error = mix(0.50f, 1.20f, dist_ratio);
+	profile.assist_fov = mix(20.0f, 30.0f, dist_ratio);
+	profile.flick_enter_error = mix(0.45f, 1.40f, dist_ratio);
 	profile.flick_strength =
 		std::clamp(
-			0.94f - speed_ratio * 0.08f - shake_ratio * 0.06f,
-			0.78f,
+			0.98f - speed_ratio * 0.06f - shake_ratio * 0.04f,
+			0.86f,
 			1.00f);
 	profile.track_strength =
 		std::clamp(
-			0.74f + dist_ratio * 0.10f - speed_ratio * 0.08f - shake_ratio * 0.05f,
-			0.58f,
-			0.96f);
+			0.82f + dist_ratio * 0.08f - speed_ratio * 0.05f - shake_ratio * 0.03f,
+			0.68f,
+			0.98f);
 	profile.max_step =
 		std::clamp(
-			6.2f + target_distance / 640.0f - speed_ratio * 0.14f,
-			4.5f,
-			11.5f);
+			7.5f + target_distance / 560.0f - speed_ratio * 0.10f,
+			5.5f,
+			13.5f);
 	profile.micro_step =
 		std::clamp(
-			2.0f + target_distance / 2200.0f,
-			2.0f,
-			5.0f);
-	profile.brake_error = mix(0.11f, 0.20f, dist_ratio);
+			2.6f + target_distance / 1800.0f,
+			2.6f,
+			6.2f);
+	profile.brake_error = mix(0.10f, 0.18f, dist_ratio);
 	// Avoid sticky over-tracking during long spray sequences.
-	profile.assist_fov *= mix(1.0f, 0.68f, spray_ratio);
-	profile.flick_enter_error *= mix(1.0f, 0.74f, spray_ratio);
-	profile.max_step *= mix(1.0f, 0.64f, spray_ratio);
-	profile.micro_step *= mix(1.0f, 0.78f, spray_ratio);
+	profile.assist_fov *= mix(1.0f, 0.82f, spray_ratio);
+	profile.flick_enter_error *= mix(1.0f, 0.86f, spray_ratio);
+	profile.max_step *= mix(1.0f, 0.78f, spray_ratio);
+	profile.micro_step *= mix(1.0f, 0.88f, spray_ratio);
 	return profile;
 }
 
@@ -246,6 +246,18 @@ void Triggerbot::update(GameInformationhandler* handler)
 				active_recoil.y * recoil_gain);
 		return desired_view;
 	};
+	const auto trigger_fire = [&]()
+	{
+		handler->set_player_shooting(true);
+		// Fallback: on some builds force_attack writes are inconsistent.
+		// Keep autonomous fire by issuing a synthetic click when memory state
+		// has not switched to shooting yet.
+		if (!game_info.controlled_player.shooting)
+			handler->click_player_weapon();
+		m_attack_release_at = now + 70;
+		m_last_automatic_shot_at = now;
+		m_delay_time = now + std::max(0, m_time_between_shots);
+	};
 	float distance_speed_limit = m_max_shot_speed;
 	if (target_distance > 1400.0f)
 	{
@@ -354,34 +366,28 @@ void Triggerbot::update(GameInformationhandler* handler)
 				// Aggressive auto-shot once aligned, even before crosshair entity
 				// catches up to this new view sample.
 				const float prefire_error =
-					std::clamp(0.30f + best_distance / 4600.0f, 0.30f, 0.70f);
+					std::clamp(0.36f + best_distance / 4200.0f, 0.36f, 0.80f);
 				const float vertical_error = std::abs(delta.x);
 				const float vertical_gate =
-					std::clamp(0.12f + best_distance / 7600.0f, 0.12f, 0.30f);
+					std::clamp(0.14f + best_distance / 6800.0f, 0.14f, 0.34f);
 				// A positive pitch delta means current aim is above the target center.
 				// Never prefire while still above head, even in aggressive mode.
-				const bool not_above_head = delta.x <= vertical_gate * 0.22f;
+				const bool not_above_head = delta.x <= vertical_gate * 0.28f;
 				const bool auto_fire_lock =
-					error <= std::max(prefire_error, profile.flick_enter_error * 1.85f) &&
+					error <= std::max(prefire_error, profile.flick_enter_error * 2.20f) &&
 					not_above_head;
 				if (error <= prefire_error &&
 					vertical_error <= vertical_gate &&
 					not_above_head &&
 					ready_to_fire_now)
 				{
-					handler->set_player_shooting(true);
-					m_attack_release_at = now + 60;
-					m_last_automatic_shot_at = now;
-					m_delay_time = now + std::max(0, m_time_between_shots);
+					trigger_fire();
 				}
 				else if (auto_fire_lock && ready_to_fire_now)
 				{
 					// Keep attack pressed briefly while lock is valid so automatic
 					// weapons reliably fire even on short visibility windows.
-					handler->set_player_shooting(true);
-					m_attack_release_at = now + 60;
-					m_last_automatic_shot_at = now;
-					m_delay_time = now + std::max(0, m_time_between_shots);
+					trigger_fire();
 				}
 				return;
 			}
@@ -455,10 +461,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 	if (now < m_delay_time)
 		return;
 
-	handler->set_player_shooting(true);
-	m_attack_release_at = now + 60;
-	m_last_automatic_shot_at = now;
-	m_delay_time = now + std::max(0, m_time_between_shots);
+	trigger_fire();
 	m_head_lock_started_at = 0;
 }
 
