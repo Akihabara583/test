@@ -34,21 +34,21 @@ struct HeadlessSettings
 	bool aimbot = true;
 	bool triggerbot = true;
 	bool movement = false;
-	int trigger_delay_ms = 85;
+	int trigger_delay_ms = 10;
 	bool ignore_same_team = true;
 	bool visible_targets_only = true;
-	float aim_fov_degrees = 7.5f;
-	float aim_smoothing = 0.32f;
-	float aim_max_step_degrees = 1.8f;
+	float aim_fov_degrees = 24.0f;
+	float aim_smoothing = 1.0f;
+	float aim_max_step_degrees = 24.0f;
 	float aim_target_z_offset = 2.5f;
 	float aim_target_left_offset = 1.2f;
-	int manual_mouse_override_ms = 140;
-	bool trigger_head_only = true;
-	float trigger_head_tolerance_degrees = 0.03f;
+	int manual_mouse_override_ms = 0;
+	bool trigger_head_only = false;
+	float trigger_head_tolerance_degrees = 0.25f;
 	float recoil_compensation = 2.0f;
-	bool only_accurate_shots = true;
+	bool only_accurate_shots = false;
 	float max_shot_speed = 500.0f;
-	bool auto_stop = true;
+	bool auto_stop = false;
 };
 
 static HeadlessSettings load_settings()

@@ -81,29 +81,29 @@ AssistProfile build_assist_profile(
 		std::clamp((recoil_magnitude + view_punch_magnitude) / 0.12f, 0.0f, 1.0f);
 
 	AssistProfile profile{};
-	profile.assist_fov = mix(12.5f, 18.5f, dist_ratio);
-	profile.flick_enter_error = mix(0.85f, 1.8f, dist_ratio);
+	profile.assist_fov = mix(18.0f, 28.0f, dist_ratio);
+	profile.flick_enter_error = mix(0.35f, 0.90f, dist_ratio);
 	profile.flick_strength =
 		std::clamp(
-			0.97f - speed_ratio * 0.12f - shake_ratio * 0.08f,
-			0.82f,
+			1.00f - speed_ratio * 0.05f - shake_ratio * 0.03f,
+			0.92f,
 			1.00f);
 	profile.track_strength =
 		std::clamp(
-			0.62f + dist_ratio * 0.12f - speed_ratio * 0.10f,
-			0.46f,
-			0.84f);
+			0.90f + dist_ratio * 0.08f - speed_ratio * 0.04f,
+			0.78f,
+			1.00f);
 	profile.max_step =
 		std::clamp(
-			3.0f + target_distance / 820.0f - speed_ratio * 0.22f,
-			2.2f,
-			6.2f);
+			8.5f + target_distance / 520.0f - speed_ratio * 0.10f,
+			7.0f,
+			14.0f);
 	profile.micro_step =
 		std::clamp(
-			0.95f + target_distance / 3000.0f,
-			0.95f,
-			2.3f);
-	profile.brake_error = mix(0.18f, 0.30f, dist_ratio);
+			3.2f + target_distance / 1800.0f,
+			3.2f,
+			8.5f);
+	profile.brake_error = mix(0.06f, 0.14f, dist_ratio);
 	return profile;
 }
 
@@ -316,10 +316,6 @@ void Triggerbot::update(GameInformationhandler* handler)
 					step_limit *= brake_ratio;
 				}
 
-				// Avoid hard side-pull while strafing fast.
-				if (horizontal_speed > 95.0f)
-					step_limit *= std::clamp(1.0f - horizontal_speed / 320.0f, 0.35f, 1.0f);
-
 				delta.x = std::clamp(delta.x * strength, -step_limit, step_limit);
 				delta.y = std::clamp(delta.y * strength, -step_limit, step_limit);
 
@@ -330,23 +326,18 @@ void Triggerbot::update(GameInformationhandler* handler)
 				handler->set_view_vec(new_view);
 				m_last_written_view = new_view;
 				m_last_write_pending = true;
-				const int settle_delay_ms =
-					static_cast<int>(std::clamp(5.0f - error * 2.8f, 0.0f, 5.0f));
-				m_delay_time = std::max(m_delay_time, now + settle_delay_ms);
+				m_delay_time = std::max(m_delay_time, now);
 
 				// Aggressive auto-shot once aligned, even before crosshair entity
 				// catches up to this new view sample.
 				const float prefire_error =
-					std::clamp(0.14f + best_distance / 7000.0f, 0.14f, 0.32f);
+					std::clamp(0.55f + best_distance / 2500.0f, 0.55f, 1.25f);
 				if (error <= prefire_error && ready_to_fire_now)
 				{
 					handler->set_player_shooting(true);
 					m_attack_release_at = now + 10;
 					m_last_automatic_shot_at = now;
-					const int fast_follow_delay =
-						static_cast<int>(std::clamp(best_distance / 95.0f, 0.0f, 14.0f));
-					m_delay_time =
-						now + std::max({ 0, m_time_between_shots, fast_follow_delay });
+					m_delay_time = now + std::max(0, m_time_between_shots);
 				}
 				return;
 			}
@@ -405,13 +396,12 @@ void Triggerbot::update(GameInformationhandler* handler)
 
 	// Confirm a stable lock for a short period before firing.
 	// This reduces edge-of-head snapshots and micro-flick misses.
-	const int lock_confirmation_ms =
-		static_cast<int>(std::clamp(target_distance / 320.0f, 0.0f, 2.0f));
+	const int lock_confirmation_ms = 0;
 	if ((now - m_head_lock_started_at) < lock_confirmation_ms)
 		return;
 
 	// If recoil/view punch is still settling, wait one more sample.
-	const float settle_gate = std::clamp(0.08f + target_distance / 40000.0f, 0.08f, 0.25f);
+	const float settle_gate = 99.0f;
 	if (recoil_magnitude > settle_gate || view_punch_magnitude > settle_gate)
 		return;
 
@@ -424,12 +414,7 @@ void Triggerbot::update(GameInformationhandler* handler)
 	handler->set_player_shooting(true);
 	m_attack_release_at = now + 10;
 	m_last_automatic_shot_at = now;
-	const int distance_delay =
-		static_cast<int>(std::clamp(target_distance / 80.0f, 0.0f, 18.0f));
-	const int recoil_delay =
-		static_cast<int>(std::clamp(recoil_magnitude * 20.0f, 0.0f, 20.0f));
-	m_delay_time =
-		now + std::max({ 0, m_time_between_shots, distance_delay, recoil_delay });
+	m_delay_time = now + std::max(0, m_time_between_shots);
 	m_head_lock_started_at = 0;
 }
 
